@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CarData</title>
+    <script src="javascript/jquery-2.0.0.js"></script>
+    <script src="rgraph/RGraph.common.core.js" ></script>
+    <script src="rgraph/RGraph.common.effects.js"></script>
+    <script src="rgraph/RGraph.vprogress.js"></script>
+    <script src="rgraph/RGraph.fuel.js"></script>
+    <script src="rgraph/RGraph.line.js"></script>
+        <style>
+        body {
+              background:url('graphics/background1.jpg') #A98436 no-repeat;
+              background-attachment: fixed;
+              -webkit-background-size: cover;
+              -moz-background-size: cover;
+              background-size: cover;
+              color:whitesmoke;
+            }
+        #rcorners3 {
+                border-radius: 25px;
+                background: url(graphics/background2.jpg);
+                background-position: left top;
+                background-repeat: repeat;
+                padding: 10px; 
+                width: 1300px;
+                height: 250px;    
+            }
+        #rcorners4 {
+                border-radius: 25px;
+                background: url(graphics/background2.jpg);
+                background-position: left top;
+                background-repeat: repeat;
+                padding: 10px; 
+                width: 1300px;
+                height: 280px;    
+            }
+    </style>
+</head>
+<body>
+    <div id="body">
+        <h1>Car Data</h1>
+        <label id="conn_text"></label><br />
+        <label id="ds18b20_temp"></label>
+        <label id="cpu_temp"></label>
+            <script>
+                $(document).ready(function () {
+                    var ws = new WebSocket("ws://192.168.0.71:8080/ws");
+
+                    ws.onopen = function (evt) {
+                        var conn_status = document.getElementById('conn_text');
+                        conn_status.innerHTML = "Arduino Status: Connected!"
+                    };
+
+                    ws.onmessage = function (evt) {
+                        var ds18b20_reading = document.getElementById('ds18b20_temp');
+                        var cpu_reading = document.getElementById('cpu_temp');
+                        current_temp = (evt.data).split(";");
+                        drawGraph_WaterTemp();
+                        drawGraph_EngineTemp();
+                        drawGraph_WaterLevel();
+                        drawGraph_Fuel();
+                    };
+
+                    ws.onclose = function (evt) {
+                        var conn_status = document.getElementById('conn_text');
+                        conn_status.innerHTML = "Arduino Status: disonnected!"
+                    };
+                });
+
+                /**To add a new graph change the cvs_E to a new canvas ID and also will need to change the current_temp[0] to the correct split value from the above code. */
+                function drawGraph_WaterTemp() {
+                    var canvas = document.getElementById('WaterTemp');
+                    RGraph.Clear(canvas);
+
+                    var thermometer = new RGraph.VProgress('WaterTemp', 0, 1, eval(current_temp[0]))
+                    .set('title.side', 'Water Temp')
+                    .set('title.side.color', 'white')
+                    .set('value.label', true)
+                    .set('scale.visible', true)
+                    .set('colors', ['red', 'blue', 'pink'])
+                    .set('scale.decimals', 1)
+                    .set('gutter.left', 40)
+                    .set('gutter.right', 50)
+                    .set('margin', 5)
+                    .set('tickmarksInner', true)
+                    .set('text.color', 'white')
+                    .draw();
+                }
+                function drawGraph_EngineTemp() {
+                    var canvas = document.getElementById('EngineTemp');
+                    RGraph.Clear(canvas);
+
+                    var thermometer = new RGraph.VProgress('EngineTemp', 0, 30, eval(current_temp[1]))
+                    .set('title.side', 'Engine Temp')
+                    .set('title.side.color', 'white')
+                    .set('value.label', false)
+                    .set('scale.visible', true)
+                    .set('colors', ['red', 'blue', 'pink'])
+                    .set('scale.decimals', 0)
+                    .set('gutter.left', 40)
+                    .set('gutter.right', 50)
+                    .set('margin', 5)
+                    .set('tickmarksInner', true)
+                    .set('text.color', 'white')
+                    .draw();
+                }
+                function drawGraph_WaterLevel() {
+                    var canvas = document.getElementById('WaterLevel');
+                    RGraph.Clear(canvas);
+
+                    var thermometer = new RGraph.VProgress('WaterLevel', 0, 100, eval(current_temp[1]))
+                    .set('title.side', 'Water Lvl')
+                    .set('title.side.color', 'white')
+                    .set('value.label', false)
+                    .set('scale.visible', true)
+                    .set('colors', ['red', 'blue', 'pink'])
+                    .set('scale.decimals', 0)
+                    .set('gutter.left', 40)
+                    .set('gutter.right', 50)
+                    .set('margin', 5)
+                    .set('tickmarksInner', true)
+                    .set('text.color', 'white')
+                    .draw();
+                }
+
+                function drawGraph_Fuel() {
+                    var canvas = document.getElementById('Fuel');
+                    RGraph.Clear(canvas);
+
+                    var fuel = new RGraph.Fuel('Fuel', 0, 100, 56)
+                    .set('text.color', ['white'])
+                    .set('annotate.color', ['white'])
+                    .set('gutter.bottom', 25)
+                    .draw();
+                }
+               
+            </script>
+
+        <p id="rcorners3">
+            <canvas id="WaterTemp" width="140" height="250">[No canvas support]</canvas>
+            <canvas id="EngineTemp" width="140" height="250">[No canvas support]</canvas>
+            <canvas id="WaterLevel" width="140" height="250">[No canvas support]</canvas>
+            <canvas id="Space1" width="20" height="250">[No canvas support]</canvas>
+            <canvas id="Fuel" width="165" height="200">[No canvas support]</canvas>
+        </p>
+        <p id="rcorners4">
+            <canvas id="cvs" width="800" height="250" >[No canvas support]</canvas><br />
+            Current seconds: <div id="numvalues" style="display: inline">0</div>
+
+            <script>
+    function format(value) {
+        value = String(value);
+
+        if (value.length === 1) {
+            value = '0' + value;
+        }
+
+        return value;
+    }
+
+    var lastnumber = 50;
+    var chart = null;
+    var data = [];
+    var labels = [];
+
+    /**
+    * Make the array of empty values
+    */
+    for (var i = 0; i < 600; i += 1) {
+        data[i] = [];
+        labels[i] = '';
+    }
+
+    // Make and draw the chart
+    var line = new RGraph.Line({
+        id: 'cvs',
+        data: [],
+        options: {
+            ymax: 100,
+            backgroundGridAutofitNumvlines: 10,
+            backgroundGridVlines: false,
+            backgroundGridBorder: false,
+            numxticks: 10,
+            tickmarks: null,
+            labels: labels,
+            noaxes: true,
+            textSize: 16,
+            gutterLeft: 50,
+            textColor: '#aaa',
+            scaleZerostart: true
+        }
+    }).draw();
+
+    /**
+    * The draw() function gets called repeatedly every second
+    */
+    function draw() {
+        var d = new Date();
+        var seconds = d.getSeconds();
+
+        // Reset the canvas
+        RGraph.reset(document.getElementById('cvs'));
+
+        /**
+        * Add the label
+        */
+        if (parseInt(seconds) === 0) {
+            labels.unshift(format(d.getHours()) + ':' + format(d.getMinutes()));
+            labels.pop();
+        } else {
+            labels.unshift('');
+            labels.pop();
+        }
+
+        // Add a new value to the chart data
+        var random = RGraph.random(-5, 5);
+
+        /**
+        *  Create the random value
+        */
+        lastnumber = lastnumber + random;
+        lastnumber = Math.max(0, lastnumber);
+        lastnumber = Math.min(100, lastnumber);
+        data[0] = lastnumber
+        data.unshift(null);
+        data.pop();
+        line.original_data[0] = data;
+
+        line.draw();
+
+        // Update the counter
+        document.getElementById('numvalues').innerHTML = d.getSeconds();
+
+        // Call this function again in one seconds time
+        //
+        // TODO Could change things so that the function runs 4 times a second (though only updates the chrt once persecond)
+        //      Might be a little more accurate. It would be a significant change though
+        setTimeout(draw, 1000);
+    }
+
+    draw();
+            </script>
+
+        </p>
+        </div>
+</body>
+</html>
